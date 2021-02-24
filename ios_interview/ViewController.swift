@@ -9,7 +9,6 @@ import UIKit
 
 class ViewController: UIViewController {
 
-    static let DATA_COLLECTION_PAUSE_IN_S: Double = 3600
     static let TIME_PER_SCAN: TimeInterval = 60
     static let TIME_BETWEEN_SCANS: TimeInterval = 300
     static var periodicScanningTimer: Timer!
@@ -73,6 +72,7 @@ class ViewController: UIViewController {
 
         if !self.readingActive {
             LocationManager.getInstance().changeLocationAccuracy(newAccuracy: .BEST)
+            MotionBasedActivityRecognition.getActivityRecognitionUpdates()
         } else {
             self.readingActive = false
 

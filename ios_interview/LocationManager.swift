@@ -115,11 +115,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
         if self.isMoreLocationsRequiredForCurrentCycle() {
             self.updateCachedLocations(newLocation: self.lastUpdatedLocation!)
-            if let prevBestLocation = self.prevCycleBestLocation,
-                self.lastUpdatedLocation!.horizontalAccuracy <= prevBestLocation.horizontalAccuracy {
-                // We only save the best location for each cycle.
-                self.prevCycleBestLocation = self.lastUpdatedLocation!
-            } else {
+            if self.prevCycleBestLocation == nil
+                || self.lastUpdatedLocation!.horizontalAccuracy
+                    <= self.prevCycleBestLocation!.horizontalAccuracy {
                 self.prevCycleBestLocation = self.lastUpdatedLocation!
             }
             saveLocation(self.lastUpdatedLocation!)

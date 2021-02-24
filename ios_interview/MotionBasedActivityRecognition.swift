@@ -22,18 +22,57 @@ class MotionBasedActivityRecognition {
     @objc dynamic var confidenceLevel: Int = INVALID_CONFIDENE_LEVEL
     @objc dynamic var lengthInSec: Double = INVALID_ACTIVITY_LENGTH
 
-    convenience init(startTimeStamp: Int64,
-                     activityType: Int,
-                     lengthInSec: Double,
-                     confidence: Int) {
+    private static var operationQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "core_motion_ops"
+        return queue
+    }()
 
-        self.init()
+
+    private static var activityManager = CMMotionActivityManager()
+
+    init(startTimeStamp: Int64,
+         activityType: Int,
+         lengthInSec: Double,
+         confidence: Int) {
 
         self.startTimeStamp = startTimeStamp
         self.lengthInSec = lengthInSec
         self.confidenceLevel = confidence
         self.activityType = activityType
     }
+
+    static func getActivityRecognitionUpdates() {
+        if CMMotionActivityManager.isActivityAvailable() {
+            let fromDate = Date.init(timeIntervalSinceNow: -1 * ViewController.TIME_BETWEEN_SCANS)
+            let toDate = Date()
+            self.activityManager
+                .queryActivityStarting(from: fromDate,
+                                       to: toDate,
+                                       to: self.operationQueue) { (activityData, error) in
+
+                guard error == nil else {
+                    self.activityManager.stopActivityUpdates()
+                    return
+                }
+
+                guard let activityData = activityData else {
+                    self.activityManager.stopActivityUpdates()
+                    return
+                }
+
+                guard activityData.count > 0 else {
+                    self.activityManager.stopActivityUpdates()
+                    return
+                }
+
+                // Save all the activities. You can assume all the activities are saved in DB here.
+
+                self.activityManager.stopActivityUpdates()
+            }
+        }
+    }
+
 
     static func saveActivities(activityData: [CMMotionActivity]) {
         resetActivityHistory()
@@ -81,14 +120,15 @@ class MotionBasedActivityRecognition {
         }
     }
 
+    // This function checks recorded activities, if there is at least one.
+    // If all of recorded activites indicate that the user is stationary,
+    // then the function reports user as stationary”
     static func isUserStationary() -> Bool {
-        var log = "check user movement"
         let savedActivities =
             readActivityHistory(
                 minLength: MotionBasedActivityRecognition.MIN_ACCEPTABLE_ACTIVITY_PERIOD_IN_S,
                 minConfidence: MotionBasedActivityRecognition.MIN_ACCEPTABLE_CONFIDENCE_LEVEL)
-        log += "_#activities: \(savedActivities.count)"
-
+        
         guard savedActivities.count > 0 else {
             return false
         }
@@ -114,7 +154,7 @@ class MotionBasedActivityRecognition {
 
     private static func readActivityHistory(minLength: Double = 0,
                                     minConfidence: Int = 0) -> [MotionBasedActivityRecognition] {
-        //This function removes the history of the collected activities
+        //This function returns the history of the collected activities
         return [MotionBasedActivityRecognition]()
     }
 }
