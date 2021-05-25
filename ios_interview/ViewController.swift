@@ -71,6 +71,8 @@ class ViewController: UIViewController {
     @objc fileprivate func scan() {
 
         if !self.readingActive {
+            self.readingActive = true
+            
             LocationManager.getInstance().changeLocationAccuracy(newAccuracy: .BEST)
             MotionBasedActivityRecognition.getActivityRecognitionUpdates()
         } else {
