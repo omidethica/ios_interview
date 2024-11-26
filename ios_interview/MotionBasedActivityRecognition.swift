@@ -8,14 +8,24 @@
 
 import CoreMotion
 
-class MotionBasedActivityRecognition {
-    static let MIN_ACCEPTABLE_CONFIDENCE_LEVEL: Int = CMMotionActivityConfidence.high.rawValue
-    static let MIN_ACCEPTABLE_ACTIVITY_PERIOD_IN_S: Double = 150
+protocol MotionBasedActivityRecognitionProtocol {
+    func getActivityRecognitionUpdates()
+    func saveActivities(activityData: [CMMotionActivity])
+    func isUserStationary() -> Bool
+    func saveActivityHistory(activity: MotionBasedActivity)
+    func resetActivityHistory()
+    func readActivityHistory(minLength: Double,
+                                    minConfidence: Int) -> [MotionBasedActivity]
+}
 
-    static let INVALID_TIME_STAMP: Int64 = 0
-    static let INVALID_ACTIVITY_LENGTH: Double = 0
-    static let INVALID_ACTIVITY_TYPE: Int = -1
-    static let INVALID_CONFIDENE_LEVEL: Int = MotionActivityConfidenceLevel.UNKNOWN.rawValue
+final class MotionBasedActivityRecognition: MotionBasedActivityRecognitionProtocol {
+    private static let MIN_ACCEPTABLE_CONFIDENCE_LEVEL: Int = CMMotionActivityConfidence.high.rawValue
+    private static let MIN_ACCEPTABLE_ACTIVITY_PERIOD_IN_S: Double = 150
+
+    private static let INVALID_TIME_STAMP: Int64 = 0
+    private static let INVALID_ACTIVITY_LENGTH: Double = 0
+    private static let INVALID_ACTIVITY_TYPE: Int = -1
+    private static let INVALID_CONFIDENE_LEVEL: Int = MotionActivityConfidenceLevel.UNKNOWN.rawValue
 
     @objc dynamic var activityType: Int = INVALID_ACTIVITY_TYPE
     @objc dynamic var startTimeStamp: Int64 = INVALID_TIME_STAMP
@@ -29,59 +39,52 @@ class MotionBasedActivityRecognition {
     }()
 
 
-    private static var activityManager = CMMotionActivityManager()
+   static var activityManager = CMMotionActivityManager()
 
-    init(startTimeStamp: Int64,
-         activityType: Int,
-         lengthInSec: Double,
-         confidence: Int) {
+    init() {
 
-        self.startTimeStamp = startTimeStamp
-        self.lengthInSec = lengthInSec
-        self.confidenceLevel = confidence
-        self.activityType = activityType
     }
 
-    static func getActivityRecognitionUpdates() {
+    func getActivityRecognitionUpdates() {
         if CMMotionActivityManager.isActivityAvailable() {
             let fromDate = Date.init(timeIntervalSinceNow: -1 * ViewController.TIME_BETWEEN_SCANS)
             let toDate = Date()
-            self.activityManager
+            MotionBasedActivityRecognition.activityManager
                 .queryActivityStarting(from: fromDate,
                                        to: toDate,
-                                       to: self.operationQueue) { (activityData, error) in
+                                       to: MotionBasedActivityRecognition.operationQueue) { (activityData, error) in
 
                 guard error == nil else {
-                    self.activityManager.stopActivityUpdates()
+                    MotionBasedActivityRecognition.activityManager.stopActivityUpdates()
                     return
                 }
 
                 guard let activityData = activityData else {
-                    self.activityManager.stopActivityUpdates()
+                    MotionBasedActivityRecognition.activityManager.stopActivityUpdates()
                     return
                 }
 
                 guard activityData.count > 0 else {
-                    self.activityManager.stopActivityUpdates()
+                    MotionBasedActivityRecognition.activityManager.stopActivityUpdates()
                     return
                 }
 
                 // Save all the activities. You can assume all the activities are saved in DB here.
 
-                self.activityManager.stopActivityUpdates()
+                    MotionBasedActivityRecognition.activityManager.stopActivityUpdates()
             }
         }
     }
 
 
-    static func saveActivities(activityData: [CMMotionActivity]) {
+    func saveActivities(activityData: [CMMotionActivity]) {
         resetActivityHistory()
 
         let currentTimeStamp = Date().timeIntervalSince1970
 
         for i in 0 ..< activityData.count {
             let activity = activityData[i]
-            let activityType: Int!
+            var activityType: Int?
             let confidence: Int?
             let activityLength: Double?
 
@@ -102,7 +105,7 @@ class MotionBasedActivityRecognition {
             }
 
 
-            guard activity.confidence.rawValue < MotionBasedActivityRecognition.MIN_ACCEPTABLE_CONFIDENCE_LEVEL else {
+            guard activity.confidence.rawValue >= MotionBasedActivityRecognition.MIN_ACCEPTABLE_CONFIDENCE_LEVEL else {
                 return
             }
 
@@ -111,10 +114,11 @@ class MotionBasedActivityRecognition {
                 ? activityData[i+1].startDate.timeIntervalSince1970
                 : currentTimeStamp) - activity.startDate.timeIntervalSince1970
 
-            let activityToSave = MotionBasedActivityRecognition(startTimeStamp: activity.startDate.millisecondsSince1970,
-                                                 activityType: activityType!,
-                                                 lengthInSec: activityLength!,
-                                                 confidence: confidence!)
+            guard let aType = activityType, let aLength = activityLength, let conf =  confidence else { return }
+            let activityToSave = MotionBasedActivity(startTimeStamp: activity.startDate.millisecondsSince1970,
+                                                 activityType: aType,
+                                                 lengthInSec: aLength,
+                                                 confidence: conf)
 
             saveActivityHistory(activity: activityToSave)
         }
@@ -123,7 +127,7 @@ class MotionBasedActivityRecognition {
     // This function checks recorded activities, if there is at least one.
     // If all of recorded activites indicate that the user is stationary,
     // then the function reports user as stationary”
-    static func isUserStationary() -> Bool {
+    func isUserStationary() -> Bool {
         let savedActivities =
             readActivityHistory(
                 minLength: MotionBasedActivityRecognition.MIN_ACCEPTABLE_ACTIVITY_PERIOD_IN_S,
@@ -144,18 +148,18 @@ class MotionBasedActivityRecognition {
         return isStationary
     }
 
-    private static func saveActivityHistory(activity: MotionBasedActivityRecognition) {
+    func saveActivityHistory(activity: MotionBasedActivity) {
         // This function saves the activity history
     }
 
-    private static func resetActivityHistory() {
+    func resetActivityHistory() {
         // This function removes the history of the collected activities
     }
 
-    private static func readActivityHistory(minLength: Double = 0,
-                                    minConfidence: Int = 0) -> [MotionBasedActivityRecognition] {
+    func readActivityHistory(minLength: Double = 0,
+                                    minConfidence: Int = 0) -> [MotionBasedActivity] {
         //This function returns the history of the collected activities
-        return [MotionBasedActivityRecognition]()
+        return [MotionBasedActivity]()
     }
 }
 
@@ -163,4 +167,11 @@ extension Date {
     var millisecondsSince1970: Int64 {
         return Int64((self.timeIntervalSince1970 * 1000.0))
     }
+}
+
+struct MotionBasedActivity {
+    let startTimeStamp: Int64?
+    let activityType: Int?
+    let lengthInSec: Double?
+    let confidence: Int?
 }

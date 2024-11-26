@@ -7,20 +7,22 @@
 
 import UIKit
 
-class ViewController: UIViewController {
+final class ViewController: UIViewController {
 
     static let TIME_PER_SCAN: TimeInterval = 60
     static let TIME_BETWEEN_SCANS: TimeInterval = 300
-    static var periodicScanningTimer: Timer!
-    static var performScanningTimer: Timer!
+    private static var periodicScanningTimer: Timer!
+    private static var performScanningTimer: Timer!
     private var readingActive = false
+    private var motionBasedActivityRecognition: MotionBasedActivityRecognitionProtocol?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         refreshStreams()
+        motionBasedActivityRecognition = MotionBasedActivityRecognition()
     }
 
-    func refreshStreams() {
+    private func refreshStreams() {
         self.stopAllScans()
 
         let result = LocationManager.getInstance().startUpdatingLocation(collectionType: .ALWAYS)
@@ -31,7 +33,7 @@ class ViewController: UIViewController {
         self.initializePeriodicScanningTimer()
     }
 
-    func stopAllScans() {
+    private func stopAllScans() {
         self.readingActive = false
 
         if ViewController.performScanningTimer != nil {
@@ -59,27 +61,34 @@ class ViewController: UIViewController {
     }
 
     @objc fileprivate func initializePerformScanningTimer() {
-        ViewController.performScanningTimer =
+
+            ViewController.performScanningTimer =
             Timer.scheduledTimer(timeInterval: ViewController.TIME_PER_SCAN,
                                  target: self,
                                  selector: #selector(self.scan),
                                  userInfo: nil,
                                  repeats: true)
-        ViewController.performScanningTimer.fire()
+
+            ViewController.performScanningTimer.fire()
+
+
     }
 
     @objc fileprivate func scan() {
 
         if !self.readingActive {
             self.readingActive = true
-            
-            LocationManager.getInstance().changeLocationAccuracy(newAccuracy: .BEST)
-            MotionBasedActivityRecognition.getActivityRecognitionUpdates()
+            guard let motionBasedActivity = motionBasedActivityRecognition else { return }
+            motionBasedActivity.getActivityRecognitionUpdates()
+            if !motionBasedActivity.isUserStationary() {
+                LocationManager.getInstance().changeLocationAccuracy(newAccuracy: .BEST)
+            } 
+
         } else {
             self.readingActive = false
 
             LocationManager.getInstance().changeLocationAccuracy(newAccuracy: .THREE_KILOMETERS)
-            
+
             if ViewController.performScanningTimer != nil {
                 ViewController.performScanningTimer.invalidate()
                 ViewController.performScanningTimer = nil

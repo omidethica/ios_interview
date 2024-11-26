@@ -9,7 +9,8 @@ import Foundation
 import CoreLocation
 import UIKit
 
-class LocationManager: NSObject, CLLocationManagerDelegate {
+
+final class LocationManager: NSObject, CLLocationManagerDelegate {
     private static let DEFAULT_DEVICE_CLASS = 0
     private static let DEFAULT_MAC = "none"
     private static let DEFAULT_DEVICE_NAME = "none"
@@ -36,7 +37,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         self.prevCycleBestLocation = nil
     }
 
-    func isLocationServiceEnabled() -> Bool {
+    private func isLocationServiceEnabled() -> Bool {
         return CLLocationManager.locationServicesEnabled()
     }
 
@@ -77,7 +78,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 log += "Failed. GPS locationing is not supported."
             }
         }
-        // report the log
+        print(log)
         return requestResult
     }
 
@@ -88,10 +89,10 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     private func clearCachedLocations() {
-        self.prevLocation1 = nil
-        self.prevLocation2 = nil
-        self.prevLocation3 = nil
-        self.prevCycleBestLocation = nil
+        prevLocation1 = nil
+        prevLocation2 = nil
+        prevLocation3 = nil
+        prevCycleBestLocation = nil
     }
 
     private func isMoreLocationsRequiredForCurrentCycle() -> Bool {
@@ -111,16 +112,19 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        self.lastUpdatedLocation = locations.last! as CLLocation
-
+        lastUpdatedLocation = locations.last! as CLLocation
+        guard let lastUpdateLoc = lastUpdatedLocation else { return }
         if self.isMoreLocationsRequiredForCurrentCycle() {
-            self.updateCachedLocations(newLocation: self.lastUpdatedLocation!)
-            if self.prevCycleBestLocation == nil
-                || self.lastUpdatedLocation!.horizontalAccuracy
-                    <= self.prevCycleBestLocation!.horizontalAccuracy {
-                self.prevCycleBestLocation = self.lastUpdatedLocation!
+
+            self.updateCachedLocations(newLocation: lastUpdateLoc)
+
+            if let prevBestLocation = prevCycleBestLocation {
+                if lastUpdateLoc.horizontalAccuracy
+                    <= prevBestLocation.horizontalAccuracy {
+                    self.prevCycleBestLocation = lastUpdateLoc
+                }
             }
-            saveLocation(self.lastUpdatedLocation!)
+            saveLocation(lastUpdateLoc)
         } else {
             self.changeLocationAccuracy(newAccuracy: .THREE_KILOMETERS)
         }
@@ -152,7 +156,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    func reportPrviousCycleLocations() {
+    private func reportPrviousCycleLocations() {
         guard self.prevCycleBestLocation != nil else {
             return
         }
